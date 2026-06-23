@@ -12,7 +12,7 @@ class ContactRepository:
         self.db = db
 
     async def create(self, name: str, surname: str, email: str, phone: str,
-                     date_of_birth: date, other_info: str | None = None) -> Contact:
+                     date_of_birth: date, user_id: int, other_info: str | None = None) -> Contact:
         """Create a new contact"""
         contact = Contact(
             name=name,
@@ -20,57 +20,36 @@ class ContactRepository:
             email=email,
             phone=phone,
             date_of_birth=date_of_birth,
-            other_info=other_info
+            other_info=other_info,
+            user_id=user_id
         )
         self.db.add(contact)
         await self.db.commit()
         await self.db.refresh(contact)
         return contact
 
-    async def get_by_id(self, contact_id: int) -> Contact | None:
+    async def get_by_id(self, contact_id: int, user_id: int | None = None) -> Contact | None:
         """Get contact by ID"""
-        result = await self.db.execute(select(Contact).where(Contact.id == contact_id))
+        stmt = select(Contact).where(Contact.id == contact_id)
+        if user_id is not None:
+            stmt = stmt.where(Contact.user_id == user_id)
+        result = await self.db.execute(stmt)
         return result.scalars().first()
 
-    async def get_all(self, skip: int = 0, limit: int = 100) -> list[Contact]:
-        """Get all contacts with pagination"""
-        result = await self.db.execute(select(Contact).offset(skip).limit(limit))
-        return result.scalars().all()
-
-    async def search_by_name(self, name: str, skip: int = 0, limit: int = 100) -> list[Contact]:
-        """Search contacts by first name"""
+    async def get_all(self, user_id: int, skip: int = 0, limit: int = 100) -> list[Contact]:
+        """Get all contacts for user with pagination"""
         result = await self.db.execute(
             select(Contact)
-            .where(Contact.name.ilike(f"%{name}%"))
+            .where(Contact.user_id == user_id)
             .offset(skip)
             .limit(limit)
         )
         return result.scalars().all()
 
-    async def search_by_surname(self, surname: str, skip: int = 0, limit: int = 100) -> list[Contact]:
-        """Search contacts by last name"""
-        result = await self.db.execute(
-            select(Contact)
-            .where(Contact.surname.ilike(f"%{surname}%"))
-            .offset(skip)
-            .limit(limit)
-        )
-        return result.scalars().all()
-
-    async def search_by_email(self, email: str, skip: int = 0, limit: int = 100) -> list[Contact]:
-        """Search contacts by email"""
-        result = await self.db.execute(
-            select(Contact)
-            .where(Contact.email.ilike(f"%{email}%"))
-            .offset(skip)
-            .limit(limit)
-        )
-        return result.scalars().all()
-
-    async def search(self, name: str | None = None, surname: str | None = None,
+    async def search(self, user_id: int, name: str | None = None, surname: str | None = None,
                      email: str | None = None, skip: int = 0, limit: int = 100) -> list[Contact]:
         """Search contacts by multiple criteria"""
-        stmt = select(Contact)
+        stmt = select(Contact).where(Contact.user_id == user_id)
         filters = []
         if name:
             filters.append(Contact.name.ilike(f"%{name}%"))
@@ -86,12 +65,14 @@ class ContactRepository:
         result = await self.db.execute(stmt)
         return result.scalars().all()
 
-    async def get_birthdays_within_days(self, days: int = 7) -> list[Contact]:
+    async def get_birthdays_within_days(self, user_id: int, days: int = 7) -> list[Contact]:
         """Get contacts with birthdays in the next N days"""
         today = date.today()
         end_date = today + timedelta(days=days)
 
-        result = await self.db.execute(select(Contact))
+        result = await self.db.execute(
+            select(Contact).where(Contact.user_id == user_id)
+        )
         all_contacts = result.scalars().all()
 
         contacts = []
@@ -103,9 +84,9 @@ class ContactRepository:
                 contacts.append(contact)
         return contacts
 
-    async def update(self, contact_id: int, **kwargs) -> Contact | None:
+    async def update(self, contact_id: int, user_id: int, **kwargs) -> Contact | None:
         """Update contact"""
-        contact = await self.get_by_id(contact_id)
+        contact = await self.get_by_id(contact_id, user_id)
         if not contact:
             return None
 
@@ -117,26 +98,12 @@ class ContactRepository:
         await self.db.refresh(contact)
         return contact
 
-    async def delete(self, contact_id: int) -> bool:
+    async def delete(self, contact_id: int, user_id: int) -> bool:
         """Delete contact"""
-        contact = await self.get_by_id(contact_id)
+        contact = await self.get_by_id(contact_id, user_id)
         if not contact:
             return False
 
         await self.db.delete(contact)
         await self.db.commit()
         return True
-
-    async def contact_exists(self, email: str = None, phone: str = None) -> bool:
-        """Check if contact exists by email or phone"""
-        stmt = select(Contact)
-        filters = []
-        if email:
-            filters.append(Contact.email == email)
-        if phone:
-            filters.append(Contact.phone == phone)
-        if filters:
-            stmt = stmt.where(or_(*filters))
-            result = await self.db.execute(stmt)
-            return result.scalars().first() is not None
-        return False

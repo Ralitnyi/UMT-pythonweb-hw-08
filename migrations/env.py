@@ -9,6 +9,7 @@ from alembic import context
 
 from models.base import Base
 from models import contact  # noqa: F401
+from models import user  # noqa: F401
 from db import settings
 
 
