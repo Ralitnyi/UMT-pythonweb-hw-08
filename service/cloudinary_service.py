@@ -1,3 +1,9 @@
+"""Cloudinary image upload service.
+
+This module provides functionality for uploading user avatar images
+to Cloudinary cloud storage with automatic transformation (resizing).
+"""
+
 import cloudinary
 import cloudinary.uploader
 
@@ -13,7 +19,18 @@ cloudinary.config(
 
 
 async def upload_avatar(file_data: bytes, user_id: int) -> str:
-    """Upload avatar to Cloudinary and return URL"""
+    """Upload a user's avatar image to Cloudinary.
+
+    Automatically resizes the image to 250x250 pixels and stores it
+    in a user-specific folder.
+
+    Args:
+        file_data: The binary data of the image file to upload.
+        user_id: The user's unique identifier for folder organization.
+
+    Returns:
+        str: The secure URL of the uploaded avatar image.
+    """
     result = cloudinary.uploader.upload(
         file_data,
         folder=f'avatars/user_{user_id}',

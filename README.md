@@ -1,63 +1,95 @@
 ﻿# Contacts REST API
 
-A comprehensive REST API for managing contacts with FastAPI, SQLAlchemy ORM, and PostgreSQL.
+A comprehensive REST API for managing contacts with user authentication, built with FastAPI, SQLAlchemy ORM, PostgreSQL, and Redis caching.
 
 ## Features
 
-✅ **CRUD Operations**
+✅ **User Authentication & Authorization**
+
+- User registration with email verification
+- JWT-based login/logout
+- Password reset via email
+- Role-based access control (user/admin)
+
+✅ **Contact Management (CRUD)**
 
 - Create, Read, Update, Delete contacts
-- Full contact management capabilities
+- Each user manages their own contacts
 
-✅ **Search Functionality**
+✅ **Search & Filtering**
 
-- Search contacts by first name, last name, or email
-- Query parameters for flexible searching
+- Search contacts by name, surname, or email
+- Get contacts with upcoming birthdays
 
-✅ **Birthday Alerts**
+✅ **Performance & Caching**
 
-- Get list of contacts with birthdays in the next N days
-- Default: 7 days lookhead
+- Redis caching for user sessions
+- Cache-aside pattern to reduce DB load
 
-✅ **Data Validation**
+✅ **File Upload**
 
-- Pydantic schemas for input validation
-- Type hints throughout the codebase
+- Avatar upload via Cloudinary (admin only)
 
 ✅ **API Documentation**
 
-- Automatic Swagger UI documentation at /docs
-- ReDoc documentation at /redoc
+- Automatic Swagger UI at `/docs`
+- ReDoc documentation at `/redoc`
 
-✅ **Database**
+✅ **Testing**
 
-- PostgreSQL database with SQLAlchemy ORM
-- Proper database session management
-- Alembic migrations used to manage schema changes
+- Unit tests (repository, service, dependencies)
+- Integration tests (API endpoints)
+- Coverage report with pytest-cov
 
 ## Project Structure
 
-`UMT-pythonweb-hw-08/
-├── main.py                 # FastAPI application entry point
-├── db.py                   # Database configuration and session
-├── pyproject.toml          # Project dependencies
-├── .env                    # Environment variables
-├── models/                 # SQLAlchemy ORM models
-│   ├── __init__.py
-│   ├── base.py            # Declarative base
-│   └── contact.py         # Contact model
-├── schemas/                # Pydantic validation schemas
-│   ├── __init__.py
-│   └── contact.py         # Contact schemas
-├── repository/             # Data access layer
-│   ├── __init__.py
+```
+├── main.py                    # FastAPI app entry point
+├── db.py                      # Database & Redis configuration
+├── pyproject.toml             # Dependencies and tool configs
+├── alembic.ini                # Alembic migration config
+├── migrations/                # Database schema migrations
+│   └── versions/
+├── models/                    # SQLAlchemy ORM models
+│   ├── base.py
+│   ├── user.py                # User model with roles
+│   └── contact.py
+├── schemas/                   # Pydantic validation schemas
+│   ├── auth.py
+│   └── contact.py
+├── repository/                # Data access layer
+│   ├── auth_repository.py
 │   └── contacts_repository.py
-├── service/                # Business logic layer
-│   ├── __init__.py
-│   └── contacts_service.py
-└── api/                    # API endpoints
-    ├── __init__.py
-    └── contacts_api.py`
+├── service/                   # Business logic layer
+│   ├── auth_service.py        # Auth logic + Redis cache
+│   ├── auth_deps.py           # JWT & role dependencies
+│   ├── cache_service.py       # Redis caching helpers
+│   ├── contacts_service.py
+│   ├── email_service.py
+│   └── cloudinary_service.py
+├── api/                       # API routers
+│   ├── auth_api.py
+│   └── contacts_api.py
+├── tests/                     # Test suite
+│   ├── conftest.py
+│   ├── unit/
+│   │   ├── test_auth_repository.py
+│   │   ├── test_contacts_repository.py
+│   │   ├── test_auth_service.py
+│   │   ├── test_cache_service.py
+│   │   └── test_auth_deps.py
+│   └── integration/
+│       ├── test_auth_api.py
+│       └── test_contacts_api.py
+└── docs/                      # Sphinx documentation
+    ├── conf.py
+    ├── index.rst
+    ├── api.rst
+    ├── models.rst
+    ├── repository.rst
+    ├── service.rst
+    └── schemas.rst
+```
 
 ## Installation
 
@@ -65,266 +97,217 @@ A comprehensive REST API for managing contacts with FastAPI, SQLAlchemy ORM, and
 
 - Python 3.12+
 - PostgreSQL 12+
+- Redis (for caching)
 - pip
 
 ### Setup Steps
 
 1. **Clone and navigate to project**
-   `ash
-cd UMT-pythonweb-hw-08
-`
+
+    ```bash
+    cd rest_api
+    ```
 
 2. **Create virtual environment**
-   `ash
-python -m venv venv
-source venv/Scripts/activate  # On Windows: venv\Scripts\activate
-`
+
+    ```bash
+    python -m venv .venv
+    # Windows:
+    .venv\Scripts\activate
+    # Linux/macOS:
+    source .venv/bin/activate
+    ```
 
 3. **Install dependencies**
-   `ash
-pip install -e .
-`
+
+    ```bash
+    pip install -e .
+    ```
 
 4. **Configure environment variables**
 
-Edit .env file with your PostgreSQL credentials:
-`env
-DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<db-name>
-DEBUG=True
-`
+    Create a `.env` file in the project root:
 
-5. **Init Database**
-   `ash
-alembic init
-alembic revision --autogenerate -m 'Init'
-alembic upgrade head 
-`
+    ```env
+    DATABASE_URL=postgresql://user:password@localhost:5432/contacts_db
+    SECRET_KEY=your-secret-key-here
+    ALGORITHM=HS256
+    ACCESS_TOKEN_EXPIRE_MINUTES=30
+    REDIS_URL=redis://localhost:6379/0
+
+    # Cloudinary (for avatar uploads)
+    CLOUDINARY_CLOUD_NAME=your-cloud-name
+    CLOUDINARY_API_KEY=your-api-key
+    CLOUDINARY_API_SECRET=your-api-secret
+
+    # Email (for verification/reset)
+    MAIL_USERNAME=your-email@gmail.com
+    MAIL_PASSWORD=your-app-password
+    MAIL_FROM=your-email@gmail.com
+    MAIL_PORT=587
+    MAIL_SERVER=smtp.gmail.com
+    ```
+
+5. **Run database migrations**
+
+    ```bash
+    alembic upgrade head
+    ```
 
 6. **Run the application**
-   `ash
-uvicorn main:app --reload
-`
 
-The API will be available at http://localhost:8000
+    ```bash
+    uvicorn main:app --reload
+    ```
+
+    The API will be available at http://localhost:8000
 
 ## API Endpoints
 
+### Authentication
+
+| Method | Endpoint                           | Description                | Access        |
+| ------ | ---------------------------------- | -------------------------- | ------------- |
+| POST   | `/api/auth/register`               | Register new user          | Public        |
+| POST   | `/api/auth/login`                  | Login and get JWT token    | Public        |
+| GET    | `/api/auth/confirm_email/{token}`  | Verify email address       | Public        |
+| POST   | `/api/auth/request_email`          | Request verification email | Public        |
+| GET    | `/api/auth/me`                     | Get current user profile   | Authenticated |
+| PATCH  | `/api/auth/avatar`                 | Update avatar URL          | Admin only    |
+| POST   | `/api/auth/password-reset/request` | Request password reset     | Public        |
+| POST   | `/api/auth/password-reset/confirm` | Confirm password reset     | Public        |
+
 ### Contact Management
 
-#### Create Contact
-
-``http
-POST /api/contacts
-Content-Type: application/json
-
-{
-"name": "John",
-"surname": "Doe",
-"email": "john@example.com",
-"phone": "+1234567890",
-"date_of_birth": "1990-01-15",
-"other_info": "Optional notes"
-}
-``
-
-#### Get All Contacts
-
-`http
-GET /api/contacts?skip=0&limit=100
-`
-
-#### Get Contact by ID
-
-`http
-GET /api/contacts/{contact_id}
-`
-
-#### Search Contacts
-
-`http
-GET /api/contacts/search?name=John&surname=Doe&email=john@example.com
-`
-
-Query parameters:
-
-- name - Search by first name (partial match)
-- surname - Search by last name (partial match)
-- email - Search by email (partial match)
-- skip - Number of records to skip (default: 0)
-- limit - Number of records to return (default: 100, max: 1000)
-
-#### Get Upcoming Birthdays
-
-`http
-GET /api/contacts/birthdays?days=7
-`
-
-Query parameters:
-
-- days - Number of days to look ahead (default: 7, range: 1-365)
-
-#### Update Contact
-
-``http
-PUT /api/contacts/{contact_id}
-Content-Type: application/json
-
-{
-"name": "Jane",
-"surname": "Smith"
-}
-``
-
-#### Delete Contact
-
-`http
-DELETE /api/contacts/{contact_id}
-`
+| Method | Endpoint                  | Description        | Access        |
+| ------ | ------------------------- | ------------------ | ------------- |
+| POST   | `/api/contacts/`          | Create contact     | Authenticated |
+| GET    | `/api/contacts/`          | List user contacts | Authenticated |
+| GET    | `/api/contacts/{id}`      | Get contact by ID  | Authenticated |
+| PUT    | `/api/contacts/{id}`      | Update contact     | Authenticated |
+| DELETE | `/api/contacts/{id}`      | Delete contact     | Authenticated |
+| GET    | `/api/contacts/search`    | Search contacts    | Authenticated |
+| GET    | `/api/contacts/birthdays` | Upcoming birthdays | Authenticated |
 
 ### Health Check
 
-`http
-GET /health
-`
+| Method | Endpoint  | Description             |
+| ------ | --------- | ----------------------- |
+| GET    | `/health` | Check API and DB health |
 
-Response:
-`json
-{
-  "status": "ok"
-}
-`
+## User Roles
 
-## Data Models
+- **user**: Default role. Can manage own contacts.
+- **admin**: Can manage own contacts AND update own avatar.
 
-### Contact Model
+Role is specified during registration and defaults to `user`.
 
-| Field         | Type        | Constraints                 |
-| ------------- | ----------- | --------------------------- |
-| id            | Integer     | Primary Key, Auto-increment |
-| name          | String(50)  | Required, Not Null          |
-| surname       | String(50)  | Required, Not Null          |
-| email         | String(50)  | Required, Unique, Not Null  |
-| phone         | String(20)  | Required, Unique, Not Null  |
-| date_of_birth | Date        | Required, Not Null          |
-| other_info    | String(255) | Optional                    |
+## Testing
 
-## API Documentation
+### Run all tests
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+```bash
+pytest tests/ -v
+```
 
-## Testing with cURL
+### Run with coverage report
 
-### Create a contact
+```bash
+pytest tests/ --cov=api --cov=repository --cov=service --cov=models --cov=schemas --cov=db.py --cov=main.py --cov-report=term-missing
+```
 
-`ash
-curl -X POST http://localhost:8000/api/contacts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "John",
-    "surname": "Doe",
-    "email": "john@example.com",
-    "phone": "+1234567890",
-    "date_of_birth": "1990-01-15"
-  }'
-`
+### Run specific test suites
 
-### Get all contacts
+```bash
+# Unit tests only
+pytest tests/unit/ -v
 
-`ash
-curl http://localhost:8000/api/contacts
-`
+# Integration tests only
+pytest tests/integration/ -v
 
-### Search contacts
+# Specific test class
+pytest tests/unit/test_auth_service.py::TestAuthService -v
+```
 
-`ash
-curl "http://localhost:8000/api/contacts/search?name=John"
-`
+### Current Coverage
 
-### Get upcoming birthdays
+Target: **>75%**
 
-`ash
-curl "http://localhost:8000/api/contacts/birthdays?days=7"
-`
-
-### Update a contact
-
-`ash
-curl -X PUT http://localhost:8000/api/contacts/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "phone": "+9876543210"
-  }'
-`
-
-### Delete a contact
-
-`ash
-curl -X DELETE http://localhost:8000/api/contacts/1
-`
+- Repository layer: ~100%
+- Service layer: ~88%
+- API layer: ~63%
+- Overall: **~82%**
 
 ## Technical Stack
 
-- **Framework**: FastAPI 0.136.3+
-- **ORM**: SQLAlchemy 2.0.50+
-- **Database**: PostgreSQL
-- **Validation**: Pydantic 2.0+
-- **Server**: Uvicorn 0.32.0+
-- **Python**: 3.12+
+- **Framework**: FastAPI 0.138+
+- **ORM**: SQLAlchemy 2.0.51+
+- **Database**: PostgreSQL with asyncpg
+- **Caching**: Redis 8.0+
+- **Validation**: Pydantic 2.13+
+- **Auth**: python-jose (JWT), passlib (bcrypt)
+- **Storage**: Cloudinary
+- **Email**: fastapi-mail
+- **Migrations**: Alembic
+- **Testing**: pytest, pytest-asyncio, pytest-cov, httpx
+- **Docs**: Sphinx with ReadTheDocs theme
+
+## Environment Variables Reference
+
+| Variable                      | Required | Description                    |
+| ----------------------------- | -------- | ------------------------------ |
+| `DATABASE_URL`                | Yes      | PostgreSQL connection string   |
+| `SECRET_KEY`                  | Yes      | JWT signing secret             |
+| `ALGORITHM`                   | No       | JWT algorithm (default: HS256) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No       | Token lifetime (default: 30)   |
+| `REDIS_URL`                   | No       | Redis connection URL           |
+| `CLOUDINARY_CLOUD_NAME`       | No       | Cloudinary cloud name          |
+| `CLOUDINARY_API_KEY`          | No       | Cloudinary API key             |
+| `CLOUDINARY_API_SECRET`       | No       | Cloudinary API secret          |
+| `MAIL_USERNAME`               | No       | SMTP username                  |
+| `MAIL_PASSWORD`               | No       | SMTP password                  |
+| `MAIL_FROM`                   | No       | Sender email address           |
+| `MAIL_PORT`                   | No       | SMTP port (default: 587)       |
+| `MAIL_SERVER`                 | No       | SMTP server hostname           |
 
 ## Error Handling
 
-The API returns appropriate HTTP status codes:
+Standard HTTP status codes are used:
 
-- 200 OK - Successful GET request
-- 201 Created - Successful POST request
-- 204 No Content - Successful DELETE request
-- 400 Bad Request - Invalid input data
-- 404 Not Found - Resource not found
-- 500 Internal Server Error - Server error
+- `200 OK` - Successful request
+- `201 Created` - Resource created
+- `204 No Content` - Successful deletion
+- `400 Bad Request` - Invalid input
+- `401 Unauthorized` - Missing or invalid JWT
+- `403 Forbidden` - Insufficient permissions
+- `404 Not Found` - Resource not found
+- `500 Internal Server Error` - Server error
 
 Example error response:
-`json
+
+```json
 {
-  "detail": "Contact not found"
+    "detail": "Contact not found"
 }
-`
+```
 
-## Environment Variables
+## Rate Limiting
 
-Create a .env file in the project root:
+- General endpoints: default limits via `slowapi`
+- `/api/auth/me`: 5 requests per minute
 
-``env
+## Docker Support
 
-# Required
-
-DATABASE_URL=postgresql://user:password@localhost:5432/contacts_db
-
-# Optional
-
-DEBUG=True
-``
-
-## Database Migrations (Optional)
-
-To set up Alembic for database migrations:
-
-`ash
-alembic init alembic
-alembic revision --autogenerate -m "Initial migration"
-alembic upgrade head
-`
+The project includes `Dockerfile` and `docker-compose.yml` for containerized deployment.
 
 ## Contributing
 
-1. Ensure all endpoints follow REST conventions
-2. Update documentation when adding new features
-3. Test all CRUD operations
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass and coverage stays above 75%
+5. Submit a pull request
 
 ## License
 
 MIT License
-
-## Support
-
-For issues or questions, please contact the development team.

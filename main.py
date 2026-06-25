@@ -1,3 +1,10 @@
+"""Main application entry point for the Contacts REST API.
+
+This module initializes the FastAPI application, configures middleware,
+rate limiting, and includes all API routers for contacts and
+authentication endpoints.
+"""
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -35,7 +42,13 @@ app.include_router(auth_router)
 
 @app.get('/')
 def root():
-    """Root endpoint"""
+    """Root endpoint providing basic API information.
+
+    Returns a welcome message with API version and links to documentation.
+
+    Returns:
+        dict: API information including message, version, and docs URLs.
+    """
     return {
         'message': 'Contacts API',
         'version': '1.0.0',
@@ -46,7 +59,17 @@ def root():
 
 @app.get('/health')
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint that verifies database connectivity.
+
+    Executes a simple SELECT query against the database to confirm
+    the service is operational.
+
+    Returns:
+        dict: Status indicator ('ok' if healthy).
+
+    Raises:
+        HTTPException 500: If the database is unreachable.
+    """
     async for db in get_db():
         try:
             await db.execute(text('SELECT 1'))

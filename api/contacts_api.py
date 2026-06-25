@@ -1,3 +1,10 @@
+"""Contact management API routes.
+
+This module defines the FastAPI router for contact CRUD operations
+including creating, reading, updating, deleting contacts, as well as
+searching and querying upcoming birthdays.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +24,19 @@ async def create_contact(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new contact"""
+    """Create a new contact for the authenticated user.
+
+    Args:
+        contact: Contact creation data.
+        db: Async database session.
+        current_user: The authenticated user.
+
+    Returns:
+        ContactResponse: The newly created contact.
+
+    Raises:
+        HTTPException 400: If the contact data is invalid.
+    """
     service = ContactService(db)
     try:
         return await service.create_contact(contact, user_id=current_user.id)
@@ -32,7 +51,17 @@ async def get_contacts(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get all contacts for current user with pagination"""
+    """Get all contacts for the authenticated user with pagination.
+
+    Args:
+        skip: Number of contacts to skip for pagination.
+        limit: Maximum number of contacts to return (1-1000).
+        db: Async database session.
+        current_user: The authenticated user.
+
+    Returns:
+        list[ContactResponse]: List of contacts belonging to the user.
+    """
     service = ContactService(db)
     return await service.get_all_contacts(user_id=current_user.id, skip=skip, limit=limit)
 
@@ -47,7 +76,23 @@ async def search_contacts(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Search contacts by name, surname, or email"""
+    """Search contacts by name, surname, or email.
+
+    At least one search parameter is recommended. Uses case-insensitive
+    partial matching. Multiple criteria are combined with OR logic.
+
+    Args:
+        name: Optional name to search for.
+        surname: Optional surname to search for.
+        email: Optional email to search for.
+        skip: Number of records to skip for pagination.
+        limit: Maximum number of records to return.
+        db: Async database session.
+        current_user: The authenticated user.
+
+    Returns:
+        list[ContactResponse]: List of matching contacts.
+    """
     service = ContactService(db)
     return await service.search_contacts(
         user_id=current_user.id,
@@ -65,7 +110,19 @@ async def get_upcoming_birthdays(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get contacts with birthdays in the next N days"""
+    """Get contacts with birthdays in the next N days.
+
+    Calculates upcoming birthdays for all contacts and filters those
+    whose next birthday falls within the specified range.
+
+    Args:
+        days: Number of days to look ahead (1-365, default: 7).
+        db: Async database session.
+        current_user: The authenticated user.
+
+    Returns:
+        list[ContactResponse]: Contacts with upcoming birthdays.
+    """
     service = ContactService(db)
     return await service.get_upcoming_birthdays(user_id=current_user.id, days=days)
 
@@ -76,7 +133,19 @@ async def get_contact(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get contact by ID"""
+    """Get a specific contact by ID.
+
+    Args:
+        contact_id: The contact's unique identifier.
+        db: Async database session.
+        current_user: The authenticated user.
+
+    Returns:
+        ContactResponse: The requested contact data.
+
+    Raises:
+        HTTPException 404: If the contact is not found or doesn't belong to the user.
+    """
     service = ContactService(db)
     contact = await service.get_contact(contact_id, user_id=current_user.id)
     if not contact:
@@ -91,7 +160,22 @@ async def update_contact(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update a contact"""
+    """Update a contact with partial data.
+
+    Only the fields provided in the request body will be updated.
+
+    Args:
+        contact_id: The contact's unique identifier.
+        contact: Update data (only provided fields are applied).
+        db: Async database session.
+        current_user: The authenticated user.
+
+    Returns:
+        ContactResponse: The updated contact data.
+
+    Raises:
+        HTTPException 404: If the contact is not found.
+    """
     service = ContactService(db)
     updated_contact = await service.update_contact(contact_id, contact, user_id=current_user.id)
     if not updated_contact:
@@ -105,7 +189,16 @@ async def delete_contact(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Delete a contact"""
+    """Delete a contact by ID.
+
+    Args:
+        contact_id: The contact's unique identifier.
+        db: Async database session.
+        current_user: The authenticated user.
+
+    Raises:
+        HTTPException 404: If the contact is not found.
+    """
     service = ContactService(db)
     if not await service.delete_contact(contact_id, user_id=current_user.id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Contact not found')
